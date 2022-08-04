@@ -1,15 +1,14 @@
 package com.aman.githubrepo.activity;
 
-import androidx.appcompat.app.AppCompatActivity;
-import androidx.recyclerview.widget.RecyclerView;
-
 import android.os.Bundle;
 import android.os.Handler;
-import android.text.format.DateFormat;
 import android.util.Log;
 import android.view.View;
 import android.widget.ProgressBar;
 import android.widget.Toast;
+
+import androidx.appcompat.app.AppCompatActivity;
+import androidx.recyclerview.widget.RecyclerView;
 
 import com.aman.githubrepo.ApiServices;
 import com.aman.githubrepo.R;
@@ -17,7 +16,6 @@ import com.aman.githubrepo.ServiceGenerator;
 import com.aman.githubrepo.adapter.RecyclerAdapter;
 import com.aman.githubrepo.models.GitResponse;
 
-import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -26,22 +24,17 @@ import retrofit2.Callback;
 import retrofit2.Response;
 
 public class MainActivity extends AppCompatActivity {
-    private static final String TAG = MainActivity.class.getSimpleName();
-    private RecyclerView recyclerView;
-    public  RecyclerAdapter adapter;
-    private static final int PAGE_START = 1;
-    private int currentPage = PAGE_START;
-    private ProgressBar progressBar;
+    public RecyclerAdapter adapter;
     GitResponse repositoriesList;
     CharSequence dateString = "";
+    private RecyclerView recyclerView;
+    private int currentPage = 1;
+    private ProgressBar progressBar;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-
-        Date d = new Date();
-        dateString = DateFormat.format("yyyy-MM-dd", d.getTime());
 
         progressBar = findViewById(R.id.progress_bar);
         recyclerView = findViewById(R.id.recyclerview);
@@ -56,13 +49,10 @@ public class MainActivity extends AppCompatActivity {
 
                 if (dy > 0) {
                     if (!recyclerView.canScrollVertically(RecyclerView.FOCUS_DOWN)) {
-                        new Handler().postDelayed(new Runnable() {
-                            @Override
-                            public void run() {
-                                currentPage+=1;
-                                fetchNextPage();
-                                progressBar.setVisibility(View.VISIBLE);
-                            }
+                        new Handler().postDelayed(() -> {
+                            currentPage += 1;
+                            fetchData(true);
+                            progressBar.setVisibility(View.VISIBLE);
                         }, 1000);
 
                     }
@@ -71,7 +61,7 @@ public class MainActivity extends AppCompatActivity {
                 }
             }
         });
-        fetchFirstPage();
+        fetchData(false);
     }
 
 
@@ -85,55 +75,33 @@ public class MainActivity extends AppCompatActivity {
         recyclerView.setAdapter(adapter);
     }
 
-    private void fetchFirstPage() {
+    private void fetchData(boolean isNextPage) {
         Map<String, String> data = new HashMap<>();
         data.put("q", "created:>2022-06-22");
         data.put("sort", "stars");
         data.put("order", "desc");
+        if (isNextPage)
+            data.put("page", String.valueOf(currentPage));
+
         ApiServices apiService = ServiceGenerator.createService(ApiServices.class);
-        Log.e(TAG, "fetchFirstPage: "+data );
-        Call<GitResponse>  repositoryListCall= apiService.getRepositoryList(data);
+        Call<GitResponse> repositoryListCall = apiService.getRepositoryList(data);
         repositoryListCall.enqueue(new Callback<GitResponse>() {
             @Override
             public void onResponse(Call<GitResponse> call, Response<GitResponse> response) {
                 if (response.isSuccessful()) {
-                    Toast.makeText(MainActivity.this, " Sucessful", Toast.LENGTH_SHORT).show();
-                    repositoriesList = response.body();
-                    prepareData(repositoriesList);
-                    progressBar.setVisibility(View.INVISIBLE);
-                } else {
-                    Toast.makeText(MainActivity.this, "Network Error for loading the data. Try again!", Toast.LENGTH_SHORT).show();
-                }
-            }
-
-            @Override
-            public void onFailure(Call<GitResponse> call, Throwable t) {
-                Toast.makeText(MainActivity.this, "Network Error for loading the data. Try again!", Toast.LENGTH_SHORT).show();
-            }
-        });
-    }
-
-
-    private void fetchNextPage() {
-        Log.e(TAG, "loadNextPage: " + currentPage);
-        Map<String, String> data = new HashMap<>();
-        data.put("q", "created:>2022-06-22");
-        data.put("sort", "stars");
-        data.put("order", "desc");
-        data.put("page", String.valueOf(currentPage));
-        ApiServices apiService = ServiceGenerator.createService(ApiServices.class);
-        Call<GitResponse> repositoryListCall= apiService.getRepositoryList(data);
-        repositoryListCall.enqueue(new Callback<GitResponse>() {
-            @Override
-            public void onResponse(Call<GitResponse> call, Response<GitResponse> response) {
-                if (response.isSuccessful()) {
-                    Toast.makeText(MainActivity.this, " Loading more  ", Toast.LENGTH_SHORT).show();
-                    GitResponse repositoriesList2 = response.body();
-                    repositoriesList.getItems().addAll(repositoriesList2.getItems());
-                    Log.e("new size ",repositoriesList.getItems().size()+"");
-                    adapter.notifyDataSetChanged();
-                    progressBar.setVisibility(View.INVISIBLE);
-
+                    if (!isNextPage) {
+                        Toast.makeText(MainActivity.this, "Page " + currentPage + " loaded...", Toast.LENGTH_SHORT).show();
+                        repositoriesList = response.body();
+                        prepareData(repositoriesList);
+                        progressBar.setVisibility(View.INVISIBLE);
+                    } else {
+                        Toast.makeText(MainActivity.this, "Page " + currentPage + " loaded...", Toast.LENGTH_SHORT).show();
+                        GitResponse repositoriesList2 = response.body();
+                        repositoriesList.getItems().addAll(repositoriesList2.getItems());
+                        Log.e("new size ", repositoriesList.getItems().size() + "");
+                        adapter.notifyDataSetChanged();
+                        progressBar.setVisibility(View.INVISIBLE);
+                    }
                 } else {
                     Toast.makeText(MainActivity.this, "Network Error for loading the data. Try again!", Toast.LENGTH_SHORT).show();
                 }
